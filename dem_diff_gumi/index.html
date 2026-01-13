@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEM 포인트 클라우드 비교</title>
+
+    <script>
+        window.CESIUM_BASE_URL = '../Build/Cesium/';
+    </script>
+
+    <script src="../Build/Cesium/Cesium.js"></script>
+    <link href="../Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+
+    <style>
+        #terrain-controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.94);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            z-index: 1000;
+            min-width: 320px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.7);
+        }
+
+        #terrain-controls h3 {
+            margin: 0 0 15px 0;
+            font-size: 20px;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 12px;
+        }
+
+        .terrain-section {
+            margin-bottom: 18px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #333;
+        }
+
+        .terrain-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .terrain-section h4 {
+            margin: 0 0 10px 0;
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .terrain-btn {
+            display: block;
+            width: 100%;
+            padding: 12px 15px;
+            margin: 6px 0;
+            border: 2px solid #444;
+            border-radius: 8px;
+            background: #2a2a2a;
+            color: white;
+            cursor: pointer;
+            font-size: 13px;
+            text-align: left;
+            transition: all 0.2s;
+        }
+
+        .terrain-btn:hover {
+            background: #3a3a3a;
+            border-color: #666;
+        }
+
+        .terrain-btn.active {
+            border-color: #4CAF50;
+            background: linear-gradient(135deg, #1b5e20, #2e7d32);
+        }
+
+        .terrain-btn .btn-title {
+            font-weight: 700;
+            font-size: 14px;
+            display: block;
+        }
+
+        .terrain-btn .btn-desc {
+            font-size: 10px;
+            color: #aaa;
+            margin-top: 3px;
+        }
+
+        #btn-original {
+            border-left: 4px solid #FF6B6B;
+        }
+
+        #btn-original.active {
+            background: linear-gradient(135deg, #c62828, #e53935);
+        }
+
+        #btn-generated {
+            border-left: 4px solid #4ECDC4;
+        }
+
+        #btn-generated.active {
+            background: linear-gradient(135deg, #00695c, #00897b);
+        }
+
+        #btn-none {
+            border-left: 4px solid #888;
+        }
+
+        #btn-none.active {
+            background: linear-gradient(135deg, #424242, #616161);
+        }
+
+        #terrain-status {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            font-size: 13px;
+            text-align: center;
+            border-left: 4px solid #888;
+        }
+
+        .pointcloud-section {
+            background: rgba(33, 150, 243, 0.1);
+            border: 1px solid rgba(33, 150, 243, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        .pointcloud-section.original {
+            background: rgba(30, 144, 255, 0.1);
+            border-color: rgba(30, 144, 255, 0.4);
+        }
+
+        .pointcloud-section.generated {
+            background: rgba(255, 60, 60, 0.1);
+            border-color: rgba(255, 60, 60, 0.4);
+        }
+
+        .pointcloud-section h5 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+        }
+
+        .pointcloud-section.original h5 {
+            color: #1E90FF;
+        }
+
+        .pointcloud-section.generated h5 {
+            color: #FF6B6B;
+        }
+
+        .color-btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+        }
+
+        .color-btn {
+            padding: 8px;
+            background: #333;
+            border: 2px solid #444;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .color-btn:hover {
+            background: #444;
+        }
+
+        .color-btn.active {
+            background: #1565C0;
+            border-color: #2196F3;
+        }
+
+        .camera-btn-group {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+        }
+
+        .camera-btn {
+            padding: 8px 4px;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-size: 10px;
+            transition: all 0.2s;
+        }
+
+        .camera-btn:hover {
+            background: #444;
+            border-color: #2196F3;
+        }
+
+        .slider-container {
+            margin-top: 10px;
+        }
+
+        .slider-container label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #ccc;
+        }
+
+        .slider-label-value {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .slider-container input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #444;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            border: 2px solid #fff;
+        }
+
+        .toggle-btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 10px;
+            background: #333;
+            border: 2px solid #444;
+            border-radius: 6px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn:hover {
+            background: #444;
+        }
+
+        .toggle-btn.on {
+            background: #2E7D32;
+            border-color: #4CAF50;
+        }
+
+        .toggle-btn.off {
+            background: #555;
+            border-color: #666;
+            opacity: 0.7;
+        }
+
+        #dem-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 999;
+            font-size: 12px;
+            min-width: 180px;
+        }
+
+        #dem-info h4 {
+            margin: 0 0 10px 0;
+            color: #4CAF50;
+            font-size: 13px;
+        }
+
+        #dem-info .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+
+        #dem-info .info-label {
+            color: #888;
+        }
+
+        #dem-info .info-value {
+            color: #4CAF50;
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        .legend {
+            margin-top: 12px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+        }
+
+        .legend-title {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            font-size: 11px;
+        }
+
+        .legend-color {
+            width: 18px;
+            height: 12px;
+            margin-right: 8px;
+            border-radius: 2px;
+        }
+
+        #terrain-controls::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #terrain-controls::-webkit-scrollbar-track {
+            background: #222;
+        }
+
+        #terrain-controls::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="cesiumContainer"></div>
+
+    <div id="terrain-controls">
+        <h3>🔵🔴 DEM 포인트 비교</h3>
+
+        <!-- 포인트 클라우드 -->
+        <div class="terrain-section">
+            <h4>📍 포인트 클라우드</h4>
+
+            <div class="pointcloud-section original">
+                <h5>🔵 원본 DEM</h5>
+                <button id="btn-original-points" class="toggle-btn off" onclick="toggleOriginalPointsBtn()"
+                    style="width: 100%;">
+                    🔵 원본 포인트
+                </button>
+                <div class="slider-container">
+                    <label>
+                        <span>투명도</span>
+                        <span id="original-opacity-label" class="slider-label-value">70%</span>
+                    </label>
+                    <input type="range" min="0.1" max="1" step="0.1" value="0.7"
+                        onchange="setOriginalPointsOpacity(this.value)">
+                </div>
+            </div>
+
+            <div class="pointcloud-section generated">
+                <h5>🔴 생성 DEM</h5>
+                <button id="btn-generated-points" class="toggle-btn off" onclick="toggleGeneratedPointsBtn()"
+                    style="width: 100%;">
+                    🔴 생성 포인트
+                </button>
+                <div class="slider-container">
+                    <label>
+                        <span>투명도</span>
+                        <span id="generated-opacity-label" class="slider-label-value">90%</span>
+                    </label>
+                    <input type="range" min="0.1" max="1" step="0.1" value="0.9"
+                        onchange="setGeneratedPointsOpacity(this.value)">
+                </div>
+            </div>
+
+            <div class="slider-container" style="margin-top: 15px;">
+                <label>
+                    <span>📏 포인트 크기</span>
+                    <span id="point-size-label" class="slider-label-value">3px</span>
+                </label>
+                <input type="range" min="1" max="10" step="1" value="3" onchange="setPointSize(this.value)">
+            </div>
+        </div>
+
+        <!-- 배경 지형 -->
+        <div class="terrain-section">
+            <h4>🗻 배경 지형</h4>
+
+            <button id="btn-none" class="terrain-btn active" onclick="disableTerrain()">
+                <span class="btn-title">🗺️ 지형 없음</span>
+                <span class="btn-desc">평면 (포인트만 표시)</span>
+            </button>
+
+            <button id="btn-original" class="terrain-btn" onclick="switchTerrain('original')">
+                <span class="btn-title">📦 원본 DEM</span>
+                <span class="btn-desc">:8091</span>
+            </button>
+
+            <button id="btn-generated" class="terrain-btn" onclick="switchTerrain('generated')">
+                <span class="btn-title">🤖 생성 DEM</span>
+                <span class="btn-desc">:8092</span>
+            </button>
+
+            <div id="terrain-status">✅ 지형 없음</div>
+        </div>
+
+        <!-- 등고선 -->
+        <div class="terrain-section">
+            <h4>🎨 등고선</h4>
+            <div class="color-btn-group">
+                <button id="color-none" class="color-btn active" onclick="setColorMode('none')">없음</button>
+                <button id="color-contour" class="color-btn" onclick="setColorMode('contour')">30m</button>
+                <button id="color-contour-dense" class="color-btn" onclick="setColorMode('contour-dense')">10m</button>
+            </div>
+        </div>
+
+        <!-- 지형 과장 -->
+        <div class="terrain-section">
+            <h4>📐 지형 과장</h4>
+            <div class="slider-container">
+                <label>
+                    <span>배율</span>
+                    <span id="exaggeration-label" class="slider-label-value">1.0x</span>
+                </label>
+                <input type="range" min="1" max="10" step="0.5" value="1" onchange="setTerrainExaggeration(this.value)">
+            </div>
+        </div>
+
+        <!-- 조명/배경 -->
+        <div class="terrain-section">
+            <h4>💡 설정</h4>
+            <div class="toggle-btn-group">
+                <button id="btn-lighting" class="toggle-btn on" onclick="toggleLightingBtn()">💡 조명</button>
+                <button id="btn-basemap" class="toggle-btn on" onclick="toggleBaseMapBtn()">🗺️ 배경</button>
+            </div>
+        </div>
+
+        <!-- 카메라 -->
+        <div class="terrain-section">
+            <h4>📷 카메라</h4>
+            <div class="camera-btn-group">
+                <button class="camera-btn" onclick="flyToCenter()">🌍전체</button>
+                <button class="camera-btn" onclick="flyToClose()">🔍근접</button>
+                <button class="camera-btn" onclick="flyToSide()">📐측면</button>
+                <button class="camera-btn" onclick="flyToTop()">⬇️수직</button>
+                <button class="camera-btn" onclick="resetCamera()">🎯리셋</button>
+            </div>
+        </div>
+
+        <!-- 범례 -->
+        <div class="legend">
+            <div class="legend-title">🏷️ 범례</div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #1E90FF;"></div>
+                <span>🔵 원본 DEM 영역</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #FF3C3C;"></div>
+                <span>🔴 생성 DEM 영역</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 정보 패널 -->
+    <div id="dem-info">
+        <h4>📊 정보</h4>
+        <div class="info-row">
+            <span class="info-label">지형:</span>
+            <span class="info-value" id="current-terrain">없음</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">고도:</span>
+            <span class="info-value" id="camera-height">-</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">위도:</span>
+            <span class="info-value" id="camera-lat">-</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">경도:</span>
+            <span class="info-value" id="camera-lon">-</span>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+
+    <script>
+        function toggleLightingBtn() {
+            const enabled = toggleLighting();
+            document.getElementById('btn-lighting').className = enabled ? 'toggle-btn on' : 'toggle-btn off';
+        }
+
+        function toggleBaseMapBtn() {
+            const enabled = toggleBaseMap();
+            document.getElementById('btn-basemap').className = enabled ? 'toggle-btn on' : 'toggle-btn off';
+        }
+
+        function toggleOriginalPointsBtn() {
+            toggleOriginalPoints();
+        }
+
+        function toggleGeneratedPointsBtn() {
+            toggleGeneratedPoints();
+        }
+
+        window.showNotification = function (message, type = 'info') {
+            console.log(`[${type}] ${message}`);
+
+            const colors = {
+                info: '#2196F3',
+                success: '#4CAF50',
+                warning: '#FF9800',
+                error: '#F44336'
+            };
+
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${colors[type] || colors.info};
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                z-index: 10000;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+                font-size: 13px;
+                max-width: 300px;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transition = 'opacity 0.3s';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        };
+
+        if (typeof viewer !== 'undefined') {
+            viewer.camera.changed.addEventListener(function () {
+                const pos = viewer.camera.positionCartographic;
+                document.getElementById('camera-height').textContent = Math.round(pos.height).toLocaleString() + 'm';
+                document.getElementById('camera-lat').textContent = Cesium.Math.toDegrees(pos.latitude).toFixed(4) + '°';
+                document.getElementById('camera-lon').textContent = Cesium.Math.toDegrees(pos.longitude).toFixed(4) + '°';
+            });
+        }
+    </script>
+</body>
+
+</html>
