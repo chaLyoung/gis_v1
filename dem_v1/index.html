@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DEM 비교 뷰어</title>
+
+    <script>
+        window.CESIUM_BASE_URL = '../Build/Cesium/';
+    </script>
+
+    <script src="../Build/Cesium/Cesium.js"></script>
+    <link href="../Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+
+    <style>
+        /* DEM 비교 전용 스타일 */
+        #terrain-controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            min-width: 280px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        #terrain-controls h3 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .terrain-section {
+            margin-bottom: 20px;
+        }
+
+        .terrain-section h4 {
+            margin: 0 0 10px 0;
+            font-size: 13px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .terrain-btn {
+            display: block;
+            width: 100%;
+            padding: 12px 15px;
+            margin: 8px 0;
+            border: 2px solid #444;
+            border-radius: 8px;
+            background: #2a2a2a;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: left;
+            transition: all 0.3s;
+        }
+
+        .terrain-btn:hover {
+            background: #3a3a3a;
+            border-color: #666;
+        }
+
+        .terrain-btn.active {
+            border-color: #4CAF50;
+            background: linear-gradient(135deg, #1b5e20, #2e7d32);
+        }
+
+        .terrain-btn .btn-title {
+            font-weight: 600;
+            display: block;
+        }
+
+        .terrain-btn .btn-desc {
+            font-size: 11px;
+            color: #aaa;
+            margin-top: 3px;
+        }
+
+        #btn-original {
+            border-left: 4px solid #FF6B6B;
+        }
+
+        #btn-generated {
+            border-left: 4px solid #4ECDC4;
+        }
+
+        #terrain-status {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            font-size: 13px;
+            text-align: center;
+            border-left: 3px solid #4CAF50;
+        }
+
+        /* 카메라 버튼 */
+        .camera-btn {
+            display: inline-block;
+            padding: 8px 12px;
+            margin: 3px;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .camera-btn:hover {
+            background: #444;
+            border-color: #2196F3;
+        }
+
+        /* 슬라이더 */
+        .slider-container {
+            margin-top: 10px;
+        }
+
+        .slider-container label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+
+        .slider-container input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #444;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+        }
+
+        #exaggeration-label {
+            float: right;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        /* 정보 패널 */
+        #dem-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 999;
+            font-size: 12px;
+            min-width: 200px;
+        }
+
+        #dem-info .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+
+        #dem-info .info-label {
+            color: #aaa;
+        }
+
+        #dem-info .info-value {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        /* 범례 */
+        .legend {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #444;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 12px;
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="cesiumContainer"></div>
+
+    <!-- DEM 비교 컨트롤 -->
+    <div id="terrain-controls">
+        <h3>🏔️ DEM 비교 뷰어</h3>
+
+        <div class="terrain-section">
+            <h4>지형 선택</h4>
+            <button id="btn-original" class="terrain-btn active" onclick="switchTerrain('original')">
+                <span class="btn-title">📦 원본 DEM</span>
+                <span class="btn-desc">gumi_dem.tif - 원본 수치표고모델</span>
+            </button>
+            <button id="btn-generated" class="terrain-btn" onclick="switchTerrain('generated')">
+                <span class="btn-title">🤖 생성 DEM</span>
+                <span class="btn-desc">gumi_gen_dem.tif - AI 생성 모델</span>
+            </button>
+        </div>
+
+        <div id="terrain-status">✅ 원본 DEM 적용됨</div>
+
+        <div class="terrain-section">
+            <h4>카메라 프리셋</h4>
+            <button class="camera-btn" onclick="flyToGumi()">🌍 전체</button>
+            <button class="camera-btn" onclick="flyToGumiClose()">🔍 근접</button>
+            <button class="camera-btn" onclick="flyToGumiSide()">📐 측면</button>
+            <button class="camera-btn" onclick="resetCamera()">🎯 리셋</button>
+        </div>
+
+        <div class="terrain-section">
+            <h4>지형 과장</h4>
+            <div class="slider-container">
+                <label>
+                    높이 배율 <span id="exaggeration-label">1.0x</span>
+                </label>
+                <input type="range" min="1" max="5" step="0.5" value="1" onchange="setTerrainExaggeration(this.value)">
+            </div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #FF6B6B;"></div>
+                <span>원본 DEM (8091)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #4ECDC4;"></div>
+                <span>생성 DEM (8092)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 정보 패널 -->
+    <div id="dem-info">
+        <h4 style="margin: 0 0 10px 0; color: #2196F3;">📊 카메라 정보</h4>
+        <div class="info-row">
+            <span class="info-label">고도:</span>
+            <span class="info-value" id="camera-height">-</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">위도:</span>
+            <span class="info-value" id="camera-lat">-</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">경도:</span>
+            <span class="info-value" id="camera-lon">-</span>
+        </div>
+        <div class="info-row">
+            <span class="info-label">현재 지형:</span>
+            <span class="info-value" id="current-terrain">원본</span>
+        </div>
+    </div>
+
+    <!-- 도움말 버튼 -->
+    <button id="help-button" onclick="toggleHelp()" title="도움말">?</button>
+
+    <!-- 도움말 모달 -->
+    <div id="help-modal" class="help-modal">
+        <button class="close-button" onclick="toggleHelp()">×</button>
+        <h2>🏔️ DEM 비교 뷰어</h2>
+
+        <h3>사용 방법</h3>
+        <ul>
+            <li><strong>원본 DEM</strong>: gumi_dem.tif (원본 수치표고모델)</li>
+            <li><strong>생성 DEM</strong>: gumi_gen_dem.tif (AI가 생성한 모델)</li>
+            <li>버튼을 클릭하여 두 지형을 전환하며 비교</li>
+        </ul>
+
+        <h3>마우스 조작</h3>
+        <ul>
+            <li>왼쪽 드래그: 지도 이동</li>
+            <li>오른쪽 드래그: 회전</li>
+            <li>Shift + 왼쪽 드래그: 기울기</li>
+            <li>마우스 휠: 줌 인/아웃</li>
+        </ul>
+
+        <h3>지형 과장</h3>
+        <ul>
+            <li>슬라이더로 높이 배율 조정 (1x ~ 5x)</li>
+            <li>미세한 지형 차이를 더 쉽게 확인 가능</li>
+        </ul>
+
+        <h3>콘솔 명령어</h3>
+        <ul>
+            <li><code>switchTerrain('original')</code> - 원본</li>
+            <li><code>switchTerrain('generated')</code> - 생성</li>
+            <li><code>setTerrainExaggeration(3)</code> - 높이 3배</li>
+        </ul>
+    </div>
+
+    <script src="main.js"></script>
+
+    <script>
+        // 도움말 토글
+        function toggleHelp() {
+            const modal = document.getElementById('help-modal');
+            modal.style.display = modal.style.display === 'block' ? 'none' : 'block';
+        }
+
+        // 알림 함수
+        window.showNotification = function (message, type = 'info') {
+            console.log(`[${type}] ${message}`);
+
+            const colors = {
+                info: '#2196F3',
+                success: '#4CAF50',
+                warning: '#FF9800',
+                error: '#F44336'
+            };
+
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${colors[type] || colors.info};
+                color: white;
+                padding: 15px 20px;
+                border-radius: 8px;
+                z-index: 10000;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                font-family: 'Segoe UI', sans-serif;
+                font-size: 14px;
+                max-width: 300px;
+                animation: slideIn 0.3s ease-out;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transition = 'opacity 0.5s';
+                setTimeout(() => notification.remove(), 500);
+            }, 3000);
+        };
+
+        // 카메라 정보 업데이트
+        if (typeof viewer !== 'undefined') {
+            viewer.camera.changed.addEventListener(function () {
+                const pos = viewer.camera.positionCartographic;
+                const height = Math.round(pos.height);
+                const lat = Cesium.Math.toDegrees(pos.latitude).toFixed(5);
+                const lon = Cesium.Math.toDegrees(pos.longitude).toFixed(5);
+
+                document.getElementById('camera-height').textContent = height.toLocaleString() + 'm';
+                document.getElementById('camera-lat').textContent = lat + '°';
+                document.getElementById('camera-lon').textContent = lon + '°';
+            });
+        }
+
+        // 지형 전환 시 정보 업데이트
+        const originalSwitchTerrain = window.switchTerrain;
+        window.switchTerrain = async function (key) {
+            await originalSwitchTerrain(key);
+            const names = { original: '원본', generated: '생성' };
+            document.getElementById('current-terrain').textContent = names[key] || key;
+        };
+    </script>
+</body>
+
+</html>
