@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>타일 기반 3D 지도</title>
+
+    <script>
+        window.CESIUM_BASE_URL = '../Build/Cesium/';
+    </script>
+
+    <script src="../Build/Cesium/Cesium.js"></script>
+    <link href="../Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <link href="style.css" rel="stylesheet">
+</head>
+
+<body>
+    <div id="cesiumContainer"></div>
+
+    <!-- 컨트롤 패널 -->
+    <div id="controls">
+        <h3>🗺️ 지도 컨트롤</h3>
+        <button onclick="toggleBuildings()">🏢 건물 ON/OFF</button>
+        <button onclick="forceUpdateBuildings()">🔄 강제 업데이트</button>
+        <button onclick="clearBuildings()">🗑️ 건물 제거</button>
+        <button onclick="resetCamera()">🎯 카메라 리셋</button>
+        <div class="status" id="status">준비됨</div>
+        <div style="margin-top: 10px; font-size: 11px; color: #aaa;">
+            <div id="camera-info">고도: -</div>
+            <div id="tile-info">타일: -</div>
+        </div>
+    </div>
+
+    <!-- 정보 패널 -->
+    <div id="info-panel">
+        <h4 style="margin: 0 0 10px 0; color: #2196F3;">📊 시스템 정보</h4>
+        <div class="info-item">
+            <span class="info-label">표시 중인 건물:</span>
+            <span class="info-value" id="visible-buildings">0</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">로드된 타일:</span>
+            <span class="info-value" id="loaded-tiles">0</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">카메라 고도:</span>
+            <span class="info-value" id="camera-height">0m</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">건물 로딩:</span>
+            <span class="info-value" id="loading-status">대기</span>
+        </div>
+    </div>
+
+    <!-- 도움말 -->
+    <button id="help-button" onclick="toggleHelp()" title="도움말">?</button>
+
+    <div id="help-modal" class="help-modal">
+        <button class="close-button" onclick="toggleHelp()">×</button>
+        <h2>🗺️ 타일 기반 건물 로딩</h2>
+
+        <h3>동작 방식</h3>
+        <ul>
+            <li>고도 50km 이하에서 자동으로 건물 로드</li>
+            <li>현재 보이는 영역 주변만 표시</li>
+            <li>카메라 이동 시 자동 업데이트</li>
+            <li>불필요한 타일은 자동 제거 (메모리 절약)</li>
+        </ul>
+
+        <h3>마우스 조작</h3>
+        <ul>
+            <li>왼쪽 드래그: 지도 이동</li>
+            <li>오른쪽 드래그: 좌우 회전</li>
+            <li>Shift + 왼쪽: 기울기 조정</li>
+            <li>마우스 휠: 줌 인/아웃</li>
+        </ul>
+
+        <h3>성능 팁</h3>
+        <ul>
+            <li>너무 가까이 줌인하면 업데이트 멈춤</li>
+            <li>타일 캐시 크기: 50개</li>
+            <li>동시 로드: 최대 3개 타일</li>
+        </ul>
+    </div>
+
+    <script src="main.js"></script>
+
+    <script>
+        // 도움말 토글
+        function toggleHelp() {
+            const modal = document.getElementById('help-modal');
+            modal.style.display = modal.style.display === 'block' ? 'none' : 'block';
+        }
+
+        // 상태 업데이트
+        window.updateStatus = function (text) {
+            const statusEl = document.getElementById('status');
+            if (statusEl) statusEl.textContent = text;
+        };
+
+        // 카메라 및 시스템 정보 업데이트
+        if (typeof viewer !== 'undefined') {
+            viewer.camera.changed.addEventListener(function () {
+                const pos = viewer.camera.positionCartographic;
+                const height = Math.round(pos.height);
+                const lon = Cesium.Math.toDegrees(pos.longitude).toFixed(4);
+                const lat = Cesium.Math.toDegrees(pos.latitude).toFixed(4);
+
+                // 카메라 정보
+                const heightEl = document.getElementById('camera-height');
+                if (heightEl) {
+                    heightEl.textContent = height + 'm';
+                }
+
+                const cameraInfoEl = document.getElementById('camera-info');
+                if (cameraInfoEl) {
+                    cameraInfoEl.textContent = `고도: ${height}m`;
+                }
+
+                const tileInfoEl = document.getElementById('tile-info');
+                if (tileInfoEl && window.buildingManager) {
+                    const tileId = buildingManager.getTileId(parseFloat(lon), parseFloat(lat));
+                    tileInfoEl.textContent = `타일: ${tileId}`;
+                }
+
+                // 시스템 정보
+                if (window.buildingManager) {
+                    const visibleEl = document.getElementById('visible-buildings');
+                    if (visibleEl) {
+                        visibleEl.textContent = buildingManager.visibleEntities.size;
+                    }
+
+                    const tilesEl = document.getElementById('loaded-tiles');
+                    if (tilesEl) {
+                        tilesEl.textContent = buildingManager.loadedTiles.size;
+                    }
+
+                    const loadingEl = document.getElementById('loading-status');
+                    if (loadingEl) {
+                        if (buildingManager.isLoadingData) {
+                            loadingEl.textContent = '초기 로딩 중';
+                            loadingEl.style.color = '#FF9800';
+                        } else if (buildingManager.currentLoads > 0) {
+                            loadingEl.textContent = `로딩 중 (${buildingManager.currentLoads})`;
+                            loadingEl.style.color = '#2196F3';
+                        } else {
+                            loadingEl.textContent = '대기';
+                            loadingEl.style.color = '#4CAF50';
+                        }
+                    }
+                }
+            });
+        }
+
+        // 알림 함수
+        window.showNotification = function (message, type = 'info') {
+            console.log(`[${type}] ${message}`);
+
+            const colors = {
+                info: '#2196F3',
+                success: '#4CAF50',
+                warning: '#FF9800',
+                error: '#F44336'
+            };
+
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${colors[type] || colors.info};
+                color: white;
+                padding: 15px 20px;
+                border-radius: 5px;
+                z-index: 10000;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+                font-family: Arial;
+                max-width: 300px;
+                animation: slideIn 0.3s;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transition = 'opacity 0.5s';
+                setTimeout(() => notification.remove(), 500);
+            }, 3000);
+        };
+    </script>
+
+    <style>
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        #info-panel {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 998;
+            font-size: 12px;
+            min-width: 200px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</body>
+
+</html>

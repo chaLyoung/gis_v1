@@ -1,0 +1,336 @@
+/* ========================================
+   기본 레이아웃
+   ======================================== */
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+#cesiumContainer {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* ========================================
+   컨트롤 패널
+   ======================================== */
+#controls {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 15px;
+    border-radius: 8px;
+    z-index: 999;
+    min-width: 200px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+#controls h3 {
+    margin: 0 0 12px 0;
+    font-size: 16px;
+    font-weight: 600;
+    border-bottom: 2px solid #2196F3;
+    padding-bottom: 8px;
+}
+
+#controls button {
+    display: block;
+    width: 100%;
+    margin: 6px 0;
+    padding: 10px;
+    background: linear-gradient(135deg, #2196F3, #1976D2);
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+
+#controls button:hover {
+    background: linear-gradient(135deg, #1976D2, #1565C0);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(33, 150, 243, 0.4);
+}
+
+#controls button:active {
+    transform: translateY(0);
+}
+
+#controls button:disabled {
+    background: #666;
+    cursor: not-allowed;
+    transform: none;
+}
+
+#controls .status {
+    margin-top: 12px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    font-size: 12px;
+    text-align: center;
+    border-left: 3px solid #4CAF50;
+}
+
+/* ========================================
+   정보 패널
+   ======================================== */
+#info-panel {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.75);
+    color: white;
+    padding: 12px 15px;
+    border-radius: 6px;
+    z-index: 998;
+    font-size: 12px;
+    max-width: 300px;
+}
+
+#info-panel .info-item {
+    margin: 4px 0;
+    display: flex;
+    justify-content: space-between;
+}
+
+#info-panel .info-label {
+    font-weight: 600;
+    margin-right: 10px;
+}
+
+#info-panel .info-value {
+    color: #4CAF50;
+}
+
+/* ========================================
+   로딩 인디케이터
+   ======================================== */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(255, 255, 255, 0.3);
+    border-top: 5px solid #2196F3;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* ========================================
+   알림 메시지 (Notification)
+   ======================================== */
+.notification {
+    position: fixed;
+    top: 70px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 5px;
+    z-index: 10000;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    font-family: Arial, sans-serif;
+    max-width: 300px;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.notification.info {
+    background: #2196F3;
+    color: white;
+}
+
+.notification.success {
+    background: #4CAF50;
+    color: white;
+}
+
+.notification.warning {
+    background: #FF9800;
+    color: white;
+}
+
+.notification.error {
+    background: #F44336;
+    color: white;
+}
+
+/* ========================================
+   도움말 버튼
+   ======================================== */
+#help-button {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    width: 40px;
+    height: 40px;
+    background: rgba(33, 150, 243, 0.9);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    z-index: 998;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s;
+}
+
+#help-button:hover {
+    background: rgba(33, 150, 243, 1);
+    transform: scale(1.1);
+}
+
+/* ========================================
+   도움말 모달
+   ======================================== */
+.help-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    z-index: 10001;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.help-modal h2 {
+    margin-top: 0;
+    color: #2196F3;
+}
+
+.help-modal ul {
+    list-style: none;
+    padding: 0;
+}
+
+.help-modal li {
+    margin: 10px 0;
+    padding-left: 20px;
+    position: relative;
+}
+
+.help-modal li:before {
+    content: "▸";
+    position: absolute;
+    left: 0;
+    color: #2196F3;
+}
+
+.help-modal .close-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #999;
+}
+
+.help-modal .close-button:hover {
+    color: #333;
+}
+
+/* ========================================
+   모바일 대응
+   ======================================== */
+@media (max-width: 768px) {
+    #controls {
+        top: auto;
+        bottom: 10px;
+        right: 10px;
+        max-width: calc(100% - 20px);
+    }
+
+    #info-panel {
+        font-size: 10px;
+        padding: 8px 10px;
+    }
+
+    .help-modal {
+        max-width: 90%;
+        padding: 20px;
+    }
+}
+
+/* ========================================
+   Cesium 위젯 커스터마이징
+   ======================================== */
+.cesium-viewer-fullscreenContainer {
+    position: absolute;
+    top: 10px;
+    right: 230px;
+}
+
+.cesium-viewer .cesium-widget-credits {
+    display: none !important;
+}
+
+/* ========================================
+   스크롤바 스타일 (WebKit)
+   ======================================== */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(33, 150, 243, 0.5);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(33, 150, 243, 0.8);
+}
